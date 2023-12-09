@@ -1,0 +1,9 @@
+**/ansible/vault_pass
+
+**/files/userpass
+
+**/ansible/vars/db.yml
+
+**/opentofu/.terraform
+
+**/opentofu/.terraform.lock.hcl
