@@ -9,7 +9,7 @@
     Then passes it to the Bicep file in this repo to create a virtual machine scale set that we can access with that key
 
 .Example
-    ./genKeyAndCallBicep.ps1 -VMName nextCloudBicep -ResourceGroupName app-jlindsey2 -Location "Central US" -UserName jimmy -VNetName ansible-test-vnet
+    ./genKeyAndCallBicep.ps1 -VMName nextCloudTofu -ResourceGroupName app-jlindsey2 -Location "Central US" -UserName jimmy -VNetName ansible-test-vnet
 #>
 param(
     [Parameter(Mandatory=$true)][string]$VMName,
@@ -31,11 +31,11 @@ $privateKeyPath
 
 ssh-keygen -m PEM -t rsa -b 2048 -C $vmName -f $privateKeyPath -N '""'
 
-$sshKey = Get-Content $publicKeyPath
-$secureSSHKey = ConvertTo-SecureString $sshKey -AsPlainText -Force
+Set-Location ./opentofu
 
-New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateFile ./bicep/virtualMachine.bicep -vmName $VMName `
-    -location $Location -vnetName $VNetName -adminUsername $UserName -adminPasswordOrKey $secureSSHKey
+tofu apply -var VMName="${VMName}" -var ResourceGroupName="${ResourceGroupName}" -var VNetName="${VNetName}" -var AdminUsername="${UserName}" -var Location="${Location}" -var AdminSSHKey="${publicKeyPath}" -auto-approve
+
+Set-Location ../
 
 $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName -Name $publicIPName).IpAddress
 

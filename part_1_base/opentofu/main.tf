@@ -39,35 +39,36 @@ variable AdminUsername {
 variable AdminSSHKey {
     type = string
     description = "SSH public key for the VM"
+    sensitive = true
 }
 
 terraform {
     required_providers {
-        azure = {
+        azurerm = {
             source = "opentofu/azurerm"
             version = "3.84.0"
         }
     }
 }
 
-import {
-  to = azurerm_virtual_network.vNet
-  id = "/subscriptions/ff95cccd-cbb7-41a2-b4ba-41917218c03c/resourceGroups/app-jlindsey2/providers/Microsoft.Network/virtualNetworks/ansible-test-vnet"
+provider "azurerm" {
+  features{}
+  
 }
 
-resource "azurerm_virtual_network" "vNet" {
-  name = var.VNetName
-  location = var.Location
+data "azurerm_subnet" "subnet" {
+  name = var.SubnetName
+  virtual_network_name = var.VNetName
   resource_group_name = var.ResourceGroupName
-  address_space = [ "10.0.0.0/16" ]
 }
 
 resource "azurerm_network_security_group" "nsg" {
     name = "${var.VMName}-nsg"
     location = var.Location
     resource_group_name = var.ResourceGroupName
-    security_rule = [{
+    security_rule {
         name = "SSH"
+        description = "SSH connection"
         priority = 1000
         protocol = "Tcp"
         access = "Allow"
@@ -75,30 +76,32 @@ resource "azurerm_network_security_group" "nsg" {
         source_address_prefix = "*"
         source_port_range = "*"
         destination_address_prefix = "*"
-        desintation_port_range = "22"
-    },
-    {
+        destination_port_range= "22"
+      }
+    security_rule {
         name = "HTTP"
+        description = "HTTP connection"
         priority = 1001
-        protcol = "Tcp"
+        protocol = "Tcp"
         access = "Allow"
         direction = "Inbound"
         source_address_prefix = "*"
         source_port_range = "*"
         destination_address_prefix = "*"
-        desintation_port_range = "80"
-    },
-    {
+        destination_port_range = "80"
+      }
+      security_rule {
         name = "HTTPS"
+        description = "HTTPS connection"
         priority = 1002
-        protcol = "Tcp"
+        protocol = "Tcp"
         access = "Allow"
         direction = "Inbound"
         source_address_prefix = "*"
         source_port_range = "*"
         destination_address_prefix = "*"
-        desintation_port_range = "443"
-    }]
+        destination_port_range = "443"
+      }
 }
 
 resource "azurerm_public_ip" "publicIP" {
@@ -118,9 +121,14 @@ resource "azurerm_network_interface" "nic" {
   ip_configuration {
     name = "ipconfig1"
     private_ip_address_allocation = "Dynamic"
-    subnet_id = azurerm_virtual_network.vNet.subnet.id
+    subnet_id = data.azurerm_subnet.subnet.id
     public_ip_address_id = azurerm_public_ip.publicIP.id
   }
+}
+
+resource "azurerm_network_interface_security_group_association" "vm_nic_nsg_association" {
+  network_interface_id = azurerm_network_interface.nic.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
 resource "azurerm_virtual_machine" "vm" {
@@ -154,7 +162,7 @@ resource "azurerm_virtual_machine" "vm" {
       disable_password_authentication = true
       ssh_keys {
         path = "/home/${var.AdminUsername}/.ssh/authorized_keys"
-        key_data = file("~/.ssh/${var.AdminSSHKey}")
+        key_data = file(var.AdminSSHKey)
       }
     }
     storage_data_disk {
