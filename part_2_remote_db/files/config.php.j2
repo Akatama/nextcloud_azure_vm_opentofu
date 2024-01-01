@@ -1,0 +1,27 @@
+<?php
+$CONFIG = array (
+  'passwordsalt' => '{{ password_salt }}',
+  'secret' => '{{ secret }}',
+  'trusted_domains' =>
+  array (
+          0 => 'localhost',
+          1 => '*'
+  ),
+  'datadirectory' => '/mnt/nextcloud',
+  'dbtype' => 'mysql',
+  'version' => '27.1.3.2',
+  'overwrite.cli.url' => 'https://{{ ansible_host }}/',
+  'overwriteprotocol' => 'https',
+  'htaccess.RewriteBase' => '/',
+  'dbname' => 'nextcloud',
+  'dbhost' => '{{ db_host }}',
+  'dbport' => '',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => '{{ db_user }}',
+  'dbpassword' => '{{ db_password }}',
+  'installed' => true,
+  'instanceid' => '{{ instance_id.stdout }}',
+  'maintenance_window_start' => '1',
+  'memcache.local' => '\OC\Memcache\APCu',
+);

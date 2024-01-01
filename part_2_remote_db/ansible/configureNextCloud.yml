@@ -1,0 +1,257 @@
+---
+- name: Configure NextCloud
+  hosts: all
+  gather_facts: false
+  vars_files:
+    - vars/users.yml
+    - vars/db.yml
+    - vars/config.yml
+  
+  tasks:
+    # - name: Write the new host key to known hosts
+    #   connection: local
+    #   shell: "sudo ssh-keyscan -H {{ inventory_hostname }} >> ~/.ssh/known_hosts"
+    - name: Update software packages
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+      become: true
+    - name: Download needed packages
+      ansible.builtin.apt:
+        name:
+        - apache2
+        - libapache2-mod-php
+        - php-gd
+        - php-mysql
+        - php-curl 
+        - php-mbstring 
+        - php-intl 
+        - php-gmp 
+        - php-bcmath
+        - php-xml
+        - php-imagick
+        - php-zip
+        - python3-mysqldb
+        - unzip
+        - php-apcu
+        - libmagickcore-6.q16-6-extra
+        state: present
+      become: true
+    - name: Download the AZNFS Mount Helper script
+      ansible.builtin.get_url:
+        url: https://github.com/Azure/AZNFS-mount/releases/latest/download/aznfs_install.sh
+        dest: /home/jimmy
+        mode: 777
+      become: true
+    - name: Run the AZNFS Mount Helper script
+      ansible.builtin.command:
+        cmd: sudo ./aznfs_install.sh
+    - name: Create the mountpoint for Azure blob storage
+      ansible.builtin.file:
+        path: /mnt/nextcloud
+        state: directory
+        mode: '0775'
+        owner: www-data
+        group: www-data
+      become: true
+    - name: Change the ownership of enable_azure_nconnect to jimmy
+      ansible.builtin.file:
+        path: /sys/module/sunrpc/parameters/enable_azure_nconnect
+        owner: jimmy
+        group: jimmy
+      become: true
+    - name: Replace N with Y in enable_azure_nconnect to active Azure nconnect
+      ansible.builtin.command:
+        cmd: echo Y > /sys/module/sunrpc/parameters/enable_azure_nconnect
+    - name: Append this line to the /etc/fstab file
+      ansible.builtin.lineinfile:
+        line: nextcloudbicepstorage.blob.core.windows.net:/nextcloudbicepstorage/nextcloudbicep  /mnt/nextcloud    aznfs defaults,nconnect=16,sec=sys,vers=3,nolock,proto=tcp,nofail,_netdev    0 0
+        state: present
+        path: /etc/fstab
+      become: true
+    - name: Mount the Azure Blob container
+      ansible.builtin.command: mount /mnt/nextcloud
+    - name: Verify the directory that is for the mountpoint has the correct permissions because it keeps changing
+      ansible.builtin.file:
+        path: /mnt/nextcloud
+        state: directory
+        mode: '0775'
+        owner: www-data
+        group: www-data
+      become: true
+    - name: Download NextCloud server and confirm the checksum
+      ansible.builtin.get_url:
+        url: https://download.nextcloud.com/server/releases/nextcloud-27.1.3.zip
+        dest: /home/jimmy
+        checksum: sha256:https://download.nextcloud.com/server/releases/nextcloud-27.1.3.zip.sha256
+    - name: Extract NextCloud server
+      ansible.builtin.unarchive:
+        src: nextcloud-27.1.3.zip
+        dest: /home/jimmy
+        remote_src: true
+      become: true
+    - name: Remove index.html
+      ansible.builtin.file:
+        path: /var/www/html/index.html
+        state: absent
+      become: true
+    - name: Copy all files from /home/jimmy/nextcloud to /var/www/html
+      ansible.builtin.copy:
+        src: /home/jimmy/nextcloud/
+        dest: /var/www/html
+        remote_src: true
+      become: true
+    - name: Change ownership for each file in /var/www/html to www-data
+      ansible.builtin.file:
+        path: /var/www/html
+        owner: www-data
+        group: www-data
+        recurse: yes
+      become: true
+    - name: Modify the memory_limit in apache2/php.ini
+      ansible.builtin.lineinfile:
+        path: /etc/php/8.1/apache2/php.ini
+        line: memory_limit = 1G
+        regexp: memory_limit
+        state: present
+      become: true
+    - name: Ensure Nextcloud is configured
+      ansible.builtin.template:
+        src: ../files/nextcloud.conf.j2
+        dest: /etc/apache2/sites-available/nextcloud.conf
+        owner: www-data
+        group: www-data
+        mode: 0644
+      become: true
+    - name: Enable site
+      ansible.builtin.command:
+        cmd: a2ensite nextcloud.conf
+      become: true
+    - name: Reload apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: reloaded
+      become: true
+    - name: Enable a2enmod modules
+      ansible.builtin.shell: |
+          sudo a2enmod rewrite
+          sudo a2enmod env
+          sudo a2enmod dir
+          sudo a2enmod mime
+          sudo a2enmod headers
+          sudo a2enmod ssl
+    - name: Enable Default SSL
+      ansible.builtin.command:
+        cmd: a2ensite default-ssl
+      become: true
+    - name: Reload apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: reloaded
+      become: true
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      become: true
+    - name: See if file exists
+      ansible.builtin.stat:
+        path: /var/www/html/nextcloud_installed.txt
+      register: nextcloud_installed
+    - name: Run NextCloud setup
+      ansible.builtin.shell:
+        cmd: sudo -u www-data php occ maintenance:install --database="mysql" --database-host="{{ db_host }}" --database-name="nextcloud" --database-user="{{ db_user }}" --database-pass="{{ db_password }}" --admin-user="{{ user }}" --admin-pass="{{ user_password }}" --data-dir="/mnt/nextcloud"
+        chdir: /var/www/html/
+      when: not nextcloud_installed.stat.exists
+    - name: Add the nextcloud_installed.txt file, if it doesn't exist
+      ansible.builtin.file:
+        path: /var/www/html/nextcloud_installed.txt
+        state: touch
+        mode: 0644
+      become: true
+    - name: Verify that .ocdata file exists
+      ansible.builtin.file:
+        path: /mnt/nextcloud/.ocdata
+        owner: www-data
+        group: www-data
+        mode: '0644'
+        state: touch
+      become: true
+    - name: Get the password salt from the original config.php
+      ansible.builtin.shell:
+        cmd: sed -n -e "s/^.*passwordsalt. => '//p" config.php | sed "s/..$//"
+        chdir: /var/www/html/config
+      register: password_salt_unsimplified
+      become: true
+      when: not password_salt
+    - name: Simplify the password_salt_unsimplified variable
+      ansible.builtin.set_fact: 
+        password_salt={{ password_salt_unsimplified.stdout }}
+      when: not password_salt 
+    - name: Get the secret from the original config.php
+      ansible.builtin.shell:
+        cmd: sed -n -e "s/^.*secret. => '//p" config.php | sed "s/..$//"
+        chdir: /var/www/html/config
+      register: secret_unsimplified
+      become: true
+      when: not secret 
+    - name: Simplify the secret_unsimplified variable
+      ansible.builtin.set_fact: 
+        secret={{ secret_unsimplified.stdout }}
+      when: not secret 
+    - name: Get the instance id from the original config.php
+      ansible.builtin.shell:
+        cmd: sed -n -e "s/^.*instanceid. => '//p" config.php | sed "s/..$//"
+        chdir: /var/www/html/config
+      register: instance_id
+      become: true
+    - ansible.builtin.template:
+        src: ../files/config.yml.j2
+        dest: /var/www/html/config/config.yml
+        owner: www-data
+        group: www-data
+        mode: 0644
+      become: true
+    - name: Remove old config.php file
+      ansible.builtin.file:
+        path: /var/www/html/config/config.php
+        state: absent
+      become: true
+    - name: Add the new config.php file
+      ansible.builtin.template:
+        src: ../files/config.php.j2
+        dest: /var/www/html/config/config.php
+        owner: www-data
+        group: www-data
+        mode: 0644
+      become: true
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      become: true
+    - name: Change the Rewite rule line for carddav
+      ansible.builtin.lineinfile:
+        path: /var/www/html/.htaccess
+        line:   RewriteRule ^/\.well-known/carddav https://{{ ansible_host }}/remote.php/dav/ [R=301,L]
+        regexp: carddav
+      become: true
+    - name: Change the Rewite rule line for caldav
+      ansible.builtin.lineinfile:
+        path: /var/www/html/.htaccess
+        line:   RewriteRule ^/\.well-known/caldav https://{{ ansible_host }}/remote.php/dav/ [R=301,L]
+        regexp: caldav
+      become: true
+    - name: Update htaccess for NextCloud
+      ansible.builtin.shell:
+        cmd: sudo -u www-data php --define apc.enable_cli=1 /var/www/html/occ maintenance:update:htaccess
+    - name: Set up cron job to maintain NextCloud server
+      ansible.builtin.cron:
+        name: NextCloud maintenance
+        minute: "*/5"
+        job: php -f /var/www/html/cron.php --define apc.enable_cli=1
+        user: www-data
+      become: true
+    - name: Reboot at the end
+      ansible.builtin.reboot:
+      become: true

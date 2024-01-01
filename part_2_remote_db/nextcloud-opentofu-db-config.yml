@@ -1,0 +1,82 @@
+variables:
+- name: vmName
+  value: nextCloudBicep
+- name: resourceGroupName
+  value: app-jlindsey2
+- name: location
+  value: Central US
+- name: userName
+  value: jimmy
+- name: vnetName
+  value: ansible-test-vnet
+
+trigger:
+  none
+
+pool:
+  vmImage: ubuntu-latest
+
+jobs:
+- job: Create_virtual_machine_and_configure_NextCloud
+  timeoutInMinutes: 30
+  steps:
+  - task: AzureCLI@2
+    displayName: Set_Up_Vault_Pass_File
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: '"$(vault_pass)" > vault_pass'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_2_remote_db/ansible/'
+  - task: AzurePowerShell@5
+    displayName: Set_Up_Vault_Vars_db_yaml_file
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: |
+        $dbFQDN = (Get-AzMySqlFlexibleServer -ResourceGroupName nextcloud-bicep-db).FullyQualifiedDomainName
+        "db_host: ${dbFQDN}" > ./vars/db.yml
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_2_remote_db/ansible/'
+  - task: AzurePowerShell@5
+    displayName: Verify_Vault_Pass
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: 'Get-Content "ansible/vault_pass"'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_2_remote_db/'
+  - task: AzurePowerShell@5
+    displayName: Deploy_VM
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'FilePath'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_2_remote_db/'
+      ScriptPath: '$(System.DefaultWorkingDirectory)/part_2_remote_db/genKeyAndCallBicep.ps1'
+      ScriptArguments: '-VMName nextcloud-bicep -ResourceGroupName nextcloud-bicep-server -Location "Central US" -UserName jimmy -VNetName nextcloud-bicep-vnet -VNetResourceGroup nextcloud-bicep-network'
+      azurePowerShellVersion: 'LatestVersion'
+  - task: AzurePowerShell@5
+    displayName: Verify_Static_Ini
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: 'Get-Content "$(System.DefaultWorkingDirectory)/part_2_remote_db/ansible/static.ini"'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_2_remote_db/'
+  - task: UsePythonVersion@0
+    displayName: Update_Python
+    inputs:
+      versionSpec: '3.10'
+      addToPath: true
+      architecture: 'x64'
+  - task: Bash@3
+    displayName: Install_Ansible
+    inputs:
+      targetType: 'inline'
+      script: 'pip install ansible'
+  - task: Bash@3
+    displayName: Run_Ansible_Playbook
+    inputs:
+      targetType: 'inline'
+      script: 'ansible-playbook -e @nextcloud_passwords.enc --vault-password-file vault_pass configureNextCloud.yml '
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_2_remote_db/ansible/'

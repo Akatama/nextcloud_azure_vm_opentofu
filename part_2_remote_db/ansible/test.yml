@@ -1,0 +1,12 @@
+---
+- name: Test getting lines from config.php
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/users.yml
+    - vars/db.yml
+    - vars/config.yml
+  tasks:
+    - name: print var
+      ansible.builtin.debug:
+        var: secret

@@ -1,0 +1,27 @@
+Alias /nextcloud "/var/www/html/"
+
+<Directory /var/www/html/>
+  Require all granted
+  AllowOverride All
+  Options FollowSymLinks MultiViews
+
+  <IfModule mod_dav.c>
+    Dav off
+  </IfModule>
+</Directory>
+<VirtualHost *:80>
+   ServerName {{ ansible_host }}
+   Redirect permanent / https://{{ ansible_host }}/
+</VirtualHost>
+<VirtualHost *:443>
+  ServerName {{ ansible_host }}
+    <IfModule mod_headers.c>
+      Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains"
+    </IfModule>
+    <IfModule mod_rewrite.c>
+      RewriteEngine On
+      RewriteRule ^/\.well-known/carddav https://%{SERVER_NAME}/remote.php/dav/ [R=301,L]
+      RewriteRule ^/\.well-known/caldav https://%{SERVER_NAME}/remote.php/dav/ [R=301,L]
+    </IfModule>
+</VirtualHost>
+
