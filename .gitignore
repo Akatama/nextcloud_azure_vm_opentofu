@@ -4,10 +4,26 @@
 
 **/ansible/vars/db.yml
 
-**/opentofu/.terraform
+part_1_base/opentofu/.terraform
 
-**/opentofu/.terraform.lock.hcl
+part_1_base/opentofu/.terraform.lock.hcl
 
-**/opentofu/terraform.tfstate
+part_1_base/opentofu/terraform.tfstate
 
-**/opentofu/terraform.tfstate.backup
+part_1_base/opentofu/terraform.tfstate.backup
+
+part_2_remote_db/opentofu/*/.terraform
+
+part_2_remote_db/opentofu/*/.terraform.lock.hcl
+
+part_2_remote_db/opentofu/*/terraform.tfstate
+
+part_2_remote_db/opentofu/*/terraform.tfstate.backup
+
+part_3_high_availability/opentofu/*/.terraform
+
+part_3_high_availability/opentofu/*/.terraform.lock.hcl
+
+part_3_high_availability/opentofu/*/terraform.tfstate
+
+part_3_high_availability/opentofu/*/terraform.tfstate.backup

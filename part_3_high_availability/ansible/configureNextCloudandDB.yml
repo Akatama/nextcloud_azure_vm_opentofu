@@ -6,6 +6,7 @@
     - vars/users.yml
     - vars/db.yml
     - vars/config.yml
+    - vars/fqdn.yml
     - vars/storageAccount.yml
   
   tasks:
@@ -22,7 +23,6 @@
         name:
         - apache2
         - libapache2-mod-php
-        - mariadb-server
         - php-gd
         - php-mysql
         - php-curl 

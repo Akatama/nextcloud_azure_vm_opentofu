@@ -6,6 +6,7 @@
     - vars/users.yml
     - vars/db.yml
     - vars/config.yml
+    - vars/fqdn.yml
     - vars/storageAccount.yml
   
   tasks:
@@ -48,8 +49,6 @@
     - name: Run the AZNFS Mount Helper script
       ansible.builtin.command:
         cmd: sudo ./aznfs_install.sh
-      environment: 
-        AZNFS_NONINTERACTIVE_INSTALL: 1
     - name: Create the mountpoint for Azure blob storage
       ansible.builtin.file:
         path: /mnt/nextcloud
@@ -104,6 +103,26 @@
         group: www-data
         recurse: yes
       become: true
+    - name: See if file exists
+      ansible.builtin.stat:
+        path: /var/www/html/nextcloud_installed.txt
+      register: nextcloud_installed
+    - name: Create the temp database (will be removed at the end)
+      community.mysql.mysql_db:
+        name: nextcloud
+        state: present
+        encoding: utf8mb4
+        collation: utf8mb4_general_ci
+      become: true
+      when: not nextcloud_installed.stat.exists
+    - name: Create temp user for the temp database (will be removed at the end)
+      community.mysql.mysql_user:
+        state: present
+        name: '{{ db_user }}'
+        password: '{{ db_password }}'
+        priv: 'nextcloud.*:ALL,GRANT'
+      become: true
+      when: not nextcloud_installed.stat.exists
     - name: Modify the memory_limit in apache2/php.ini
       ansible.builtin.lineinfile:
         path: /etc/php/8.1/apache2/php.ini
@@ -150,13 +169,9 @@
         name: apache2
         state: restarted
       become: true
-    - name: See if file exists
-      ansible.builtin.stat:
-        path: /var/www/html/nextcloud_installed.txt
-      register: nextcloud_installed
     - name: Run NextCloud setup
       ansible.builtin.shell:
-        cmd: sudo -u www-data php occ maintenance:install --database="mysql" --database-host="{{ db_host }}" --database-name="nextcloud" --database-user="{{ db_user }}" --database-pass="{{ db_password }}" --admin-user="{{ user }}" --admin-pass="{{ user_password }}" --data-dir="/mnt/nextcloud"
+        cmd: sudo -u www-data php occ maintenance:install --database='mysql' --database-name='nextcloud' --database-user='{{ db_user }}' --database-pass='{{ db_password }}' --admin-user='{{ user }}' --admin-pass='{{ user_password }}'
         chdir: /var/www/html/
       when: not nextcloud_installed.stat.exists
     - name: Add the nextcloud_installed.txt file, if it doesn't exist
@@ -173,28 +188,6 @@
         mode: '0644'
         state: touch
       become: true
-    - name: Get the password salt from the original config.php
-      ansible.builtin.shell:
-        cmd: sed -n -e "s/^.*passwordsalt. => '//p" config.php | sed "s/..$//"
-        chdir: /var/www/html/config
-      register: password_salt_unsimplified
-      become: true
-      when: not password_salt
-    - name: Simplify the password_salt_unsimplified variable
-      ansible.builtin.set_fact: 
-        password_salt={{ password_salt_unsimplified.stdout }}
-      when: not password_salt 
-    - name: Get the secret from the original config.php
-      ansible.builtin.shell:
-        cmd: sed -n -e "s/^.*secret. => '//p" config.php | sed "s/..$//"
-        chdir: /var/www/html/config
-      register: secret_unsimplified
-      become: true
-      when: not secret 
-    - name: Simplify the secret_unsimplified variable
-      ansible.builtin.set_fact: 
-        secret={{ secret_unsimplified.stdout }}
-      when: not secret 
     - name: Get the instance id from the original config.php
       ansible.builtin.shell:
         cmd: sed -n -e "s/^.*instanceid. => '//p" config.php | sed "s/..$//"
@@ -229,13 +222,13 @@
     - name: Change the Rewite rule line for carddav
       ansible.builtin.lineinfile:
         path: /var/www/html/.htaccess
-        line:   RewriteRule ^/\.well-known/carddav https://{{ ansible_host }}/remote.php/dav/ [R=301,L]
+        line:   RewriteRule ^/\.well-known/carddav https://{{ fqdn }}/remote.php/dav/ [R=301,L]
         regexp: carddav
       become: true
     - name: Change the Rewite rule line for caldav
       ansible.builtin.lineinfile:
         path: /var/www/html/.htaccess
-        line:   RewriteRule ^/\.well-known/caldav https://{{ ansible_host }}/remote.php/dav/ [R=301,L]
+        line:   RewriteRule ^/\.well-known/caldav https://{{ fqdn }}/remote.php/dav/ [R=301,L]
         regexp: caldav
       become: true
     - name: Update htaccess for NextCloud
@@ -247,6 +240,22 @@
         minute: "*/5"
         job: php -f /var/www/html/cron.php --define apc.enable_cli=1
         user: www-data
+      become: true
+    - name: Remove the /var/www/html/data folder
+      ansible.builtin.file:
+        path: /var/www/html/data
+        state: absent
+      become: true
+    - name: Delete the temp nextcloud database
+      community.mysql.mysql_db:
+        name: nextcloud
+        state: absent
+      become: true
+    - name: Remove the temp nextcloud user
+      community.mysql.mysql_user:
+        state: absent
+        name: '{{ db_user }}'
+        password: '{{ db_password }}'
       become: true
     - name: Reboot at the end
       ansible.builtin.reboot:

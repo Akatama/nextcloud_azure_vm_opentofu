@@ -1,0 +1,112 @@
+trigger:
+  none
+
+pool:
+  vmImage: ubuntu-latest
+
+jobs:
+- job: Create_virtual_machine_and_configure_NextCloud
+  timeoutInMinutes: 30
+  steps:
+  - task: AzureCLI@2
+    displayName: Set_Up_Vault_Pass_File
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: '"$(vault_pass)" > vault_pass'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
+  - task: AzureCLI@2
+    displayName: Set_Up_Vars_config_yaml_file
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: '"password_salt: $(password_salt)`nsecret: $(secret)" > config.yml'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/vars'
+  - task: AzurePowerShell@5
+    displayName: Set_Up_Vars_db_yaml_file
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: |
+        $dbFQDN = (Get-AzMySqlFlexibleServer -ResourceGroupName $(storageResourceGroup) -Name $(dbName)).FullyQualifiedDomainName
+        "db_host: ${dbFQDN}" > ./vars/db.yml
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
+  - task: AzurePowerShell@5
+    displayName: Set_Up_vars_storageAccount_yaml_file
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: '"storage_account: $(storageAccount)" > ./vars/storageAccount.yml'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
+  - task: AzurePowerShell@5
+    displayName: Verify_Vault_Pass
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: 'Get-Content "ansible/vault_pass"'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
+  - task: AzurePowerShell@5
+    displayName: Verify_config_yml
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: 'Get-Content "ansible/vars/config.yml"'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
+  - task: AzurePowerShell@5
+    displayName: Verify_storageAccount_yml
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: 'Get-Content "ansible/vars/storageAccount.yml"'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
+  - task: AzurePowerShell@5
+    displayName: Deploy_Servers
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'FilePath'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
+      ScriptPath: '$(System.DefaultWorkingDirectory)/part_3_high_availability/genKeyAndDeployServers.ps1'
+      ScriptArguments: '-VMName $(vmName) -ResourceGroupName $(resourceGroupName) -Location "$(location)" -UserName $(userName) -VNetName $(vnetName) -VNetResourceGroup $(vnetResourceGroupName) -NumberOfVMs $(numberOfVMs)'
+      azurePowerShellVersion: 'LatestVersion'
+  - task: AzurePowerShell@5
+    displayName: Verify_Static_Ini
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'InlineScript'
+      Inline: 'Get-Content "$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/static.ini"'
+      azurePowerShellVersion: 'LatestVersion'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
+  - task: UsePythonVersion@0
+    displayName: Update_Python
+    inputs:
+      versionSpec: '3.10'
+      addToPath: true
+      architecture: 'x64'
+  - task: Bash@3
+    displayName: Install_Ansible
+    inputs:
+      targetType: 'inline'
+      script: 'pip install ansible'
+  - task: Bash@3
+    displayName: Run_Ansible_Playbook
+    inputs:
+      targetType: 'inline'
+      script: 'ansible-playbook -e @nextcloud_passwords.enc --vault-password-file vault_pass configureNextCloud.yml '
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
+  - task: AzurePowerShell@5
+    displayName: Secure_VMs_By_Removing_SSH_Access_and_Public_IPs
+    inputs:
+      azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      ScriptType: 'FilePath'
+      ScriptPath: '$(System.DefaultWorkingDirectory)/part_3_high_availability/secureVMs.ps1'
+      ScriptArguments: '-ResourceBaseName $(vmName) -ResourceGroupName $(resourceGroupName) -NumberOfInstances $(numberOfVMs)'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
