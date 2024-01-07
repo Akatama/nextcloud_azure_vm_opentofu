@@ -8,7 +8,6 @@
     - vars/config.yml
     - vars/fqdn.yml
     - vars/storageAccount.yml
-  
   tasks:
     # - name: Write the new host key to known hosts
     #   connection: local

@@ -64,8 +64,8 @@ variable "AvailabilityZone" {
 
 variable "HighAvailabilityMode" {
     type = string
-    description = "High availability mode for a server : SameZone or ZoneRedundant"
-    default = "SameZone"
+    description = "High availability mode for a server : Disabled, SameZone or ZoneRedundant"
+    default = "Disabled"
 }
 
 variable "StandbyAvailabilityZone" {

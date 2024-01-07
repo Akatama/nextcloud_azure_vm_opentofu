@@ -57,10 +57,10 @@ resource "azurerm_mysql_flexible_server" "mysql_server" {
     administrator_password = var.AdminPassword
     zone = var.AvailabilityZone
 
-    # high_availability {
-    #     mode = var.HighAvailabilityMode
-    #     standby_availability_zone = var.StandbyAvailabilityZone
-    # }
+    high_availability {
+        mode = var.HighAvailabilityMode != "Disabled" ? var.HighAvailabilityMode : null
+        standby_availability_zone = var.HighAvailabilityMode != "Disabled" ? var.StandbyAvailabilityZone : null
+    }
     storage {
         size_gb = var.StorageSizeGB
         iops = var.StorageIOPS

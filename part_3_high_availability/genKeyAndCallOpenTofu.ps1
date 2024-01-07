@@ -21,7 +21,8 @@ param(
     [Parameter(Mandatory=$true)][int]$NumberOfVMs
 )
 
-$publicIPName = "${vmName}-PublicIP"
+$publicIPBaseName = "${vmName}-PublicIP"
+$publicIPLoadBalancerName = "${vmName}-LB-PublicIP"
 
 $keyPath = $HOME + "/.ssh/"
 $privateKeyName = $VMName + "-key"
@@ -35,12 +36,20 @@ ssh-keygen -m PEM -t rsa -b 2048 -C $vmName -f $privateKeyPath -N '""'
 
 Set-Location ./opentofu/virtualMachine
 
-tofu apply -var VMName="${VMName}" -var ResourceGroupName="${ResourceGroupName}" -var VNetName="${VNetName}" -var VNetResourceGroupName="${VnetResourceGroupName}" -var AdminUsername="${UserName}" -var Location="${Location}" -var AdminSSHKey="${publicKeyPath}" -auto-approve
+tofu apply -var VMName="${VMName}" -var ResourceGroupName="${ResourceGroupName}" -var Location="${Location}" -var VNetName="${VNetName}" `
+    -var VNetResourceGroupName="${VnetResourceGroupName}" -var AdminUsername="${UserName}" -var AdminSSHKey="${publicKeyPath}" `
+    -var ItemCount=$NumberOfVMs -auto-approve
 
 Set-Location ../../
 
-$publicIP = (Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName -Name $publicIPName).IpAddress
+$staticIniLines = ""
+for($i=0; $i -lt $NumberOfVms; $i++)
+{
+    $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName -Name "${publicIPBaseName}${i}").IpAddress
+    $staticIniLines += "${publicIP} ansible_ssh_private_key_file=${privateKeyPath} ansible_user=${UserName}`n"
+}
 
-$staticIniLine = "${publicIP} ansible_ssh_private_key_file=${privateKeyPath} ansible_user=${UserName}"
+$staticIniLines > ./ansible/static.ini
 
-$staticIniLine > ./ansible/static.ini
+$lbFQDN = (Get-AzPublicIpAddress -Name $publicIPLoadBalancerName -ResourceGroupName $ResourceGroupName).DnsSettings.Fqdn
+"fqdn: $lbFQDN" > ./ansible/vars/fqdn.yml
