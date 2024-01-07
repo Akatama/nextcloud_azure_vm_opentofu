@@ -67,27 +67,28 @@ jobs:
       azurePowerShellVersion: 'LatestVersion'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
   - task: AzureCLI@2
+    displayName: Install OpenTofu
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       scriptType: 'pscore'
       scriptLocation: 'inlineScript'
       inlineScript: 'sudo snap install --classic opentofu'
   - task: AzureCLI@2
+    displayName: Init OpenTofu
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       scriptType: 'pscore'
       scriptLocation: 'inlineScript'
       inlineScript: 'tofu init'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/opentofu/virtualMachine/'
-  - task: AzurePowerShell@5
-    displayName: Deploy_Servers
+  - task: AzureCLI@2
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
-      ScriptType: 'FilePath'
+      scriptType: 'pscore'
+      scriptLocation: 'scriptPath'
+      scriptPath: '$(System.DefaultWorkingDirectory)/part_3_high_availability/genKeyAndCallOpenTofu.ps1'
+      arguments: '-VMName $(vmName) -ResourceGroupName $(resourceGroupName) -Location "$(location)" -UserName $(userName) -VNetName $(vnetName) -VNetResourceGroup $(vnetResourceGroupName) -NumberOfVMs $(numberOfVMs)'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
-      ScriptPath: '$(System.DefaultWorkingDirectory)/part_3_high_availability/genKeyAndCallOpenTofu.ps1'
-      ScriptArguments: '-VMName $(vmName) -ResourceGroupName $(resourceGroupName) -Location "$(location)" -UserName $(userName) -VNetName $(vnetName) -VNetResourceGroup $(vnetResourceGroupName) -NumberOfVMs $(numberOfVMs)'
-      azurePowerShellVersion: 'LatestVersion'
   - task: AzurePowerShell@5
     displayName: Verify_Static_Ini
     inputs:
