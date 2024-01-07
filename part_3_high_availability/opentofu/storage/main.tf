@@ -34,18 +34,6 @@ resource "azurerm_resource_group" "resource_group" {
     location = var.Location
 }
 
-# resource "azurerm_private_dns_zone" "dns_zone" {
-#   name                = "${lower(var.ResourceBaseName)}.mysql.database.azure.com"
-#   resource_group_name = azurerm_resource_group.resource_group.name
-# }
-
-# resource "azurerm_private_dns_zone_virtual_network_link" "dns_zone_link" {
-#   name                  = "exampleVnetZone.com"
-#   private_dns_zone_name = azurerm_private_dns_zone.dns_zone.name
-#   virtual_network_id    = data.azurerm_virtual_network.vnet.id
-#   resource_group_name   = azurerm_resource_group.resource_group.name
-# }
-
 resource "azurerm_mysql_flexible_server" "mysql_server" {
     name = "${lower(var.ResourceBaseName)}"
     resource_group_name = azurerm_resource_group.resource_group.name
@@ -57,9 +45,12 @@ resource "azurerm_mysql_flexible_server" "mysql_server" {
     administrator_password = var.AdminPassword
     zone = var.AvailabilityZone
 
-    high_availability {
-        mode = var.HighAvailabilityMode != "Disabled" ? var.HighAvailabilityMode : null
-        standby_availability_zone = var.HighAvailabilityMode != "Disabled" ? var.StandbyAvailabilityZone : null
+    dynamic "high_availability" {
+        for_each = var.HighAvailabilityMode != "Disabled" ? [0] : []
+        content {
+            mode = var.HighAvailabilityMode
+            standby_availability_zone = var.StandbyAvailabilityZone
+        }
     }
     storage {
         size_gb = var.StorageSizeGB
