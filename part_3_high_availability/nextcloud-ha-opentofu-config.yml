@@ -70,6 +70,11 @@ jobs:
     inputs:
       targetType: 'inline'
       script: 'sudo snap install --classic opentofu'
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: 'tofu init'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/opentofu/virtualMachine/'
   - task: AzurePowerShell@5
     displayName: Deploy_Servers
     inputs:
