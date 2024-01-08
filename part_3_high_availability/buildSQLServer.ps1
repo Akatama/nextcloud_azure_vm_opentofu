@@ -25,7 +25,11 @@ $DBAdminPassword = ConvertTo-SecureString $passwords[0].split(":")[1].trim() -As
 
 Set-Location ./opentofu/storage
 
-tofu apply -var ResourceBaseName="${ResourceBaseName}" -var ResourceGroupName="${ResourceGroupName}" -var Location="${Location}" -var VnetName="${VNetName}" -var VnetResourceGroupName="${VnetResourceGroup}" -var AdminUserName="${DBAdminName}" -var AdminPassword="${DBAdminPassword}" -var StorageAccountKind="${StorageAccountKind}"  -auto-approve
+tofu apply -var ResourceBaseName="${ResourceBaseName}" -var ResourceGroupName="${ResourceGroupName}" -var Location="${Location}" `
+    -var VnetName="${VNetName}" -var VnetResourceGroupName="${VnetResourceGroup}" -var AdminUserName="${DBAdminName}" `
+    -var AdminPassword="${DBAdminPassword}" -var StorageAccountKind="${StorageAccountKind}" -var StorageAccountTier="Premium" `
+    -var ServerEdition="GP" -var DBSkuName="Standard_D2ds_v4" -var GeoRedundantBackup="true" -var HighAvailabilityMode="SameZone" `
+    -var AvailabilityZone="2" -auto-approve
 
 Set-Location ../../
 
