@@ -102,7 +102,7 @@ jobs:
         for($i=0; $i -lt $(numberOfVMs); $i++)
         {
             $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $(resourceGroupName) -Name "${publicIPBaseName}${i}").IpAddress
-            $staticIniLines += "${publicIP} ansible_ssh_private_key_file=$HOME/.ssh/$(vmName)-key ansible_user=${UserName}`n"
+            $staticIniLines += "${publicIP} ansible_ssh_private_key_file=$HOME/.ssh/$(vmName)-key ansible_user=$(userName)`n"
         }
         
         $staticIniLines > ./ansible/static.ini
