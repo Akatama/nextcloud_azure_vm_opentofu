@@ -21,8 +21,8 @@ param(
     [Parameter(Mandatory=$true)][int]$NumberOfVMs
 )
 
-$publicIPBaseName = "${vmName}-PublicIP"
-$publicIPLoadBalancerName = "${vmName}-LB-PublicIP"
+# $publicIPBaseName = "${vmName}-PublicIP"
+# $publicIPLoadBalancerName = "${vmName}-LB-PublicIP"
 
 $keyPath = $HOME + "/.ssh/"
 $privateKeyName = $VMName + "-key"
@@ -42,14 +42,14 @@ tofu apply -var VMName="${VMName}" -var ResourceGroupName="${ResourceGroupName}"
 
 Set-Location ../../
 
-$staticIniLines = ""
-for($i=0; $i -lt $NumberOfVms; $i++)
-{
-    $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName -Name "${publicIPBaseName}${i}").IpAddress
-    $staticIniLines += "${publicIP} ansible_ssh_private_key_file=${privateKeyPath} ansible_user=${UserName}`n"
-}
+# $staticIniLines = ""
+# for($i=0; $i -lt $NumberOfVms; $i++)
+# {
+#     $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName -Name "${publicIPBaseName}${i}").IpAddress
+#     $staticIniLines += "${publicIP} ansible_ssh_private_key_file=${privateKeyPath} ansible_user=${UserName}`n"
+# }
 
-$staticIniLines > ./ansible/static.ini
+# $staticIniLines > ./ansible/static.ini
 
-$lbFQDN = (Get-AzPublicIpAddress -Name $publicIPLoadBalancerName -ResourceGroupName $ResourceGroupName).DnsSettings.Fqdn
-"fqdn: $lbFQDN" > ./ansible/vars/fqdn.yml
+# $lbFQDN = (Get-AzPublicIpAddress -Name $publicIPLoadBalancerName -ResourceGroupName $ResourceGroupName).DnsSettings.Fqdn
+# "fqdn: $lbFQDN" > ./ansible/vars/fqdn.yml
