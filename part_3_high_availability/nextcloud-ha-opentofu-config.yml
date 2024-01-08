@@ -9,7 +9,7 @@ jobs:
   timeoutInMinutes: 30
   steps:
   - task: AzureCLI@2
-    displayName: Set_Up_Vault_Pass_File
+    displayName: Set Up Vault Pass File
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       scriptType: 'pscore'
@@ -17,7 +17,7 @@ jobs:
       inlineScript: '"$(vault_pass)" > vault_pass'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
   - task: AzureCLI@2
-    displayName: Set_Up_Vars_config_yaml_file
+    displayName: Set Up Vars config yaml file
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       scriptType: 'pscore'
@@ -25,7 +25,7 @@ jobs:
       inlineScript: '"password_salt: $(password_salt)`nsecret: $(secret)" > config.yml'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/vars'
   - task: AzurePowerShell@5
-    displayName: Set_Up_Vars_db_yaml_file
+    displayName: Set Up Vars db yaml file
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
@@ -35,7 +35,7 @@ jobs:
       azurePowerShellVersion: 'LatestVersion'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
   - task: AzurePowerShell@5
-    displayName: Set_Up_vars_storageAccount_yaml_file
+    displayName: Set Up vars storageAccount yaml file
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
@@ -43,7 +43,7 @@ jobs:
       azurePowerShellVersion: 'LatestVersion'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
   - task: AzurePowerShell@5
-    displayName: Verify_Vault_Pass
+    displayName: Verify Vault Pass
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
@@ -51,7 +51,7 @@ jobs:
       azurePowerShellVersion: 'LatestVersion'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
   - task: AzurePowerShell@5
-    displayName: Verify_config_yml
+    displayName: Verify config yml
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
@@ -59,7 +59,7 @@ jobs:
       azurePowerShellVersion: 'LatestVersion'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
   - task: AzurePowerShell@5
-    displayName: Verify_storageAccount_yml
+    displayName: Verify storageAccount yml
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
@@ -95,6 +95,7 @@ jobs:
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
+      azurePowerShellVersion: 'LatestVersion'
       Inline: |
         $publicIPBaseName = "$(vmName)-PublicIP"
         $staticIniLines = ""
@@ -110,6 +111,7 @@ jobs:
     displayName: Set up fqdn.yml
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
+      azurePowerShellVersion: 'LatestVersion'
       ScriptType: 'InlineScript'
       Inline: |
         $publicIPLoadBalancerName = "$(vmName)-LB-PublicIP"
@@ -118,7 +120,7 @@ jobs:
         "fqdn: $lbFQDN" > ./ansible/vars/fqdn.yml
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
   - task: AzurePowerShell@5
-    displayName: Verify_Static_Ini
+    displayName: Verify Static Ini
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'InlineScript'
@@ -126,24 +128,24 @@ jobs:
       azurePowerShellVersion: 'LatestVersion'
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/'
   - task: UsePythonVersion@0
-    displayName: Update_Python
+    displayName: Update Python
     inputs:
       versionSpec: '3.10'
       addToPath: true
       architecture: 'x64'
   - task: Bash@3
-    displayName: Install_Ansible
+    displayName: Install Ansible
     inputs:
       targetType: 'inline'
       script: 'pip install ansible'
   - task: Bash@3
-    displayName: Run_Ansible_Playbook
+    displayName: Run Ansible Playbook
     inputs:
       targetType: 'inline'
       script: 'ansible-playbook -e @nextcloud_passwords.enc --vault-password-file vault_pass configureNextCloud.yml '
       workingDirectory: '$(System.DefaultWorkingDirectory)/part_3_high_availability/ansible/'
   - task: AzurePowerShell@5
-    displayName: Secure_VMs_By_Removing_SSH_Access_and_Public_IPs
+    displayName: Secure VMs By Removing SSH Access and Public IPs
     inputs:
       azureSubscription: 'cccis-jlindsey-sandbox(ff95cccd-cbb7-41a2-b4ba-41917218c03c)'
       ScriptType: 'FilePath'
